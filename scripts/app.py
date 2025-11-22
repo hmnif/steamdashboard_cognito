@@ -7,7 +7,6 @@ import os
 import numpy as np
 
 from plotly.subplots import make_subplots
-from ipywidgets import interact
 
 # Set page configuration
 st.set_page_config(page_title="Steam Dashboard", layout="wide")
