@@ -11,33 +11,58 @@ from plotly.subplots import make_subplots
 # Set page configuration
 st.set_page_config(page_title="Steam Dashboard", layout="wide")
 
+# CSS Style
 kpi_style = """
 <style>
+.title {
+    font-size: 36px;
+    font-weight: 700;
+    color: #262730;
+}
 .kpi-box {
-    background: #f8f9fa;
+    background: #F0F2F6;
     padding: 20px;
     border-radius: 12px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-left: 4px solid #0068C9;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 .kpi-value {
     font-size: 32px;
     font-weight: 700;
     margin-bottom: -10px;
+    color: #0068C9;
 }
 .kpi-label {
     font-size: 14px;
-    color: #555;
+    color: #3B3B3B;
 }
 .kpi-delta {
-    font-size: 13px;
-    color: #009900;
-    margin-top: 4px;
+    text: None;
+}
+.kpi-delta-pos {
+    font-size: 14px;
+    color: #FFFFFF;
+    margin-top: 8px;
+    background-color: #02FF20;
+    border-radius: 99px;
+    padding: 2px 8px;
+    display: inline-block;
+    text-align: center;
 }
 .kpi-delta-neg {
-    font-size: 13px;
-    color: #cc0000;
-    margin-top: 4px;
+    font-size: 14px;
+    color: #FFFFFF;
+    margin-top: 8px;
+    background-color: #FF4B4B;
+    border-radius: 99px;
+    display: inline-block;
+    padding: 2px 8px;
+    text-align: center;
 }
 </style>
 """
@@ -56,6 +81,12 @@ except FileNotFoundError:
 # Preprocess data
 df['release_date'] = pd.to_datetime(df['release_date'], errors='coerce')
 df['release_year'] = df['release_date'].dt.year
+df['genres'] = df['genres'].fillna('Unknown').str.split(';')
+df['genres'] = df['genres'].apply(
+    lambda x: [g.strip() for g in x if g.strip().lower() != 'indie']
+)
+df_exploded = df.explode('genres')
+df_exploded = df_exploded[df_exploded['genres'].notna() & (df_exploded['genres'] != "")]
 
 # Sidebar filters
 st.sidebar.header('Filter Data')
@@ -87,15 +118,26 @@ elif time_period == '< Tahun 2009':
     df_prev = None  
 
 # Title and description
-st.title('Dashboard Tren Game Steam 🎮')
+st.markdown("""
+    <h1 class="title">
+        Dahsboard Tren Game Steam🎮
+    </h1>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 Dibuat oleh **Cognito Team.**
 """)
 
+st.markdown("---")
+
 #KPI Cards
 total_games = df_current.shape[0]
 total_publishers = df_current['publisher'].nunique()
-most_common_genre = df_current['genres'].dropna().mode()[0]
+if df_exploded.empty:
+    most_common_genre = "Unknown"
+else:
+    most_common_genre = df_exploded['genres'].mode()[0]
+
 avg_price_current = df_current['price'].mean()
 
 #Logical Delta Absence for Time Period
@@ -114,26 +156,26 @@ else:
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if delta_games is not None:
-        kelas_delta = "kpi-delta" if delta_games >= 0 else "kpi-delta-neg"
+        kelas_delta = "kpi-delta-pos" if delta_games >= 0 else "kpi-delta-neg"
+        arrow = "↑" if delta_games >= 0 else "↓"
         nilai_delta = delta_games
     else:
         kelas_delta = "kpi-delta"
-        nilai_delta = "–"
+        arrow = ""
+        nilai_delta = ""
 
     st.markdown(f"""
         <div class="kpi-box">
             <div class="kpi-label">Total Games</div>
             <div class="kpi-value">{total_games:,}</div>
-            <div class="{kelas_delta}">
-                {nilai_delta}
-            </div>
+            <div class="{kelas_delta}">{arrow} {nilai_delta}</div>
         </div>
     """, unsafe_allow_html=True)
 with col2:
     st.markdown(f"""
         <div class="kpi-box">
             <div class="kpi-label">Total Publisher</div>
-            <div class="kpi-value">{total_publishers}</div>
+            <div class="kpi-value">{total_publishers:,}</div>
         </div>
     """, unsafe_allow_html=True)
 with col3:
@@ -159,9 +201,11 @@ with col4:
             <div class="kpi-box">
                 <div class="kpi-label">Harga Rata-rata</div>
                 <div class="kpi-value">£{avg_price_current:.2f}</div>
-                <div class="kpi-delta">–</div>
+                <div class="kpi-delta"></div>
             </div>
         """, unsafe_allow_html=True)
+
+st.markdown("---")
 
 #Trend Game of Release per Year
 st.subheader("Tren Perilisan Game per Tahun")
@@ -171,16 +215,13 @@ fig1 = px.line(
     x='release_year',
     y='count',
     markers=True,
-    labels={'release_year': 'Tahun Rilis', 'count': 'Jumlah Game'},
-    title=None,
+    color_discrete_map={'count': '#0068C9'},
+    labels={'release_year': '**Tahun Rilis**', 'count': 'Jumlah Game'},
     line_shape='spline'
 )
 fig1.update_traces(line_color='royalblue', line_width=3)
 fig1.update_layout(
     template='plotly_white',
-    title=None,
-    title_x=0.5,
-    title_font=dict(size=20, family='Arial', color='black'),
     xaxis=dict(tickmode='linear', tick0=1990, dtick=2),
     yaxis_title='Jumlah Game Dirilis',
     hovermode='x unified'
@@ -190,7 +231,7 @@ st.plotly_chart(fig1, use_container_width=True)
 # Top 5 Games by Reviews and 5 Genres Distribution
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("5 Game Teratas berdasarkan Review")
+    st.subheader("Top 5 Game Terpopuler")
     top5_games = df_current.nlargest(5, 'positive_ratings')[['name', 'positive_ratings', 'negative_ratings']]
     top5_games_melted = top5_games.melt(id_vars='name', value_vars=['positive_ratings', 'negative_ratings'],
                                         var_name='review_type', value_name='count')
@@ -201,40 +242,49 @@ with col1:
         color='review_type',
         barmode='group',
         labels={'name': 'Nama Game', 'count': 'Jumlah Review', 'review_type': 'Tipe Review'},
-        color_discrete_map={'positive_ratings': 'green', 'negative_ratings': 'red'}
+        color_discrete_map={'positive_ratings': '#37C900', 'negative_ratings': '#C90000'}
     )
     fig2.update_layout(
         template='plotly_white',
-        title=None,
-        title_x=0.5,
         xaxis_title='Nama Game',
         yaxis_title='Jumlah Review',
         hovermode='x unified'
     )
     st.plotly_chart(fig2, use_container_width=True)
 with col2:
-    st.subheader("Distribusi 5 Genre Teratas")
-    top5_genres = df_current['genres'].value_counts().nlargest(5).reset_index()
+    st.subheader("Top 5 Genre Teratas")
+    df_genre = df_current.copy()
+    df_genre = df_genre.explode('genres')
+
+    df_genre = df_genre[
+        df_genre['genres'].notna() & 
+        (df_genre['genres'] != "") &
+        (df_genre['genres'].str.lower() != "indie")
+    ]
+
+    top5_genres = (
+        df_genre['genres']
+        .value_counts()
+        .nlargest(5)
+        .reset_index()
+    )
     top5_genres.columns = ['genre', 'count']
     fig3 = px.bar(
         top5_genres,
         x='genre',
         y='count',
         labels={'genre': 'Genre', 'count': 'Jumlah Game'},
-        title=None,
         color='genre',
         color_discrete_map={
-            top5_genres['genre'][0]: colors.qualitative.Plotly[0],
-            top5_genres['genre'][1]: colors.qualitative.Plotly[1],
-            top5_genres['genre'][2]: colors.qualitative.Plotly[2],
-            top5_genres['genre'][3]: colors.qualitative.Plotly[3],
-            top5_genres['genre'][4]: colors.qualitative.Plotly[4],
+            top5_genres['genre'][0]: '#0068C9',
+            top5_genres['genre'][1]: '#3286d3',
+            top5_genres['genre'][2]: '#66a4de',
+            top5_genres['genre'][3]: '#99c2e9',
+            top5_genres['genre'][4]: '#e5eff9',
         }
     )
     fig3.update_layout(
         template='plotly_white',
-        title=None,
-        title_x=0.5,
         xaxis_title='Genre',
         yaxis_title='Jumlah Game',
         hovermode='x unified'
@@ -244,7 +294,7 @@ with col2:
 # Top 5 Publishers by Average Positive Reviews and Price Distribution (Free vs Paid)
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("5 Publisher Teratas berdasarkan Rata-rata Review Positif")
+    st.subheader("Top 5 Publisher Teratas")
     avg_positive_reviews = df_current.groupby('publisher')['positive_ratings'].mean().reset_index()
     top5_publishers = avg_positive_reviews.nlargest(5, 'positive_ratings')
     fig4 = px.bar(
@@ -252,14 +302,11 @@ with col1:
         x='publisher',
         y='positive_ratings',
         labels={'publisher': 'Publisher', 'positive_ratings': 'Rata-rata Review Positif'},
-        title=None,
         color='publisher',
         color_discrete_sequence=colors.qualitative.Plotly
     )
     fig4.update_layout(
         template='plotly_white',
-        title=None,
-        title_x=0.5,
         xaxis_title='Publisher',
         yaxis_title='Rata-rata Review Positif',
         hovermode='x unified'
@@ -275,56 +322,77 @@ with col2:
         names='price_category',
         values='count',
         color='price_category',
-        color_discrete_map={'Gratis': 'lightgreen', 'Berbayar': 'lightblue'},
-        title=None
+        color_discrete_map={'Gratis': '#64B5F6', 'Berbayar': '#0068C9'},
+    )
+    fig5.update_traces(
+        pull=[0 if cat == 'Gratis' else 0.1 for cat in price_distribution['price_category']]
     )
     fig5.update_layout(
         template='plotly_white',
-        title=None,
-        title_x=0.5,
         hovermode='x unified'
     )
     st.plotly_chart(fig5, use_container_width=True)
 
 # Corelation Ratio Positive Reviews vs Price Game with Filter Genre
 st.subheader("Korelasi Antara Review Positif dan Harga Game")
-positive_ratio = df_current['positive_ratings'] / (df_current['positive_ratings'] + df_current['negative_ratings'])
-df_current['positive_ratio'] = positive_ratio
-genre_options = ['Semua'] + sorted(df_current['genres'].dropna().unique().tolist())
-selected_genre = st.selectbox('Pilih Genre:', genre_options, index=0)
+df_pos = df_current.copy()
+df_pos['positive_ratio'] = df_pos['positive_ratings'] / (
+    df_pos['positive_ratings'] + df_pos['negative_ratings']
+)
 
-if selected_genre != 'Semua':
-    df_current = df_current[df_current['genres'].str.contains(selected_genre)]
+df_pos = df_pos.explode('genres')
+df_pos['genres'] = df_pos['genres'].fillna("Unknown")
+df_pos = df_pos[df_pos['genres'].str.lower() != "indie"]
+df_pos = df_pos[df_pos['price'] <= 100]
+genre_options_pos = ['Semua'] + sorted(df_pos['genres'].unique().tolist())
+selected_genre_pos = st.selectbox(
+    'Pilih Genre (Positive Ratio vs Price):',
+    genre_options_pos,
+    index=0
+)
+if selected_genre_pos != 'Semua':
+    df_pos = df_pos[df_pos['genres'] == selected_genre_pos]
 
 fig6 = px.scatter(
-    df_current,
+    df_pos,
     x='positive_ratio',
     y='price',
+    color='price',
+    color_continuous_scale=[
+        [0.00, "#0068C9"],
+        [0.10, "#64B5F6"],
+        [0.20, "#fee08b"],
+        [0.50, "#f46d43"],
+        [1.00, "#d73027"]
+    ],
     hover_data=['name', 'publisher', 'genres'],
     labels={
         'positive_ratio': 'Rasio Review Positif',
-        'price': 'Harga Game (GBP)'
+        'price': 'Harga Game (£)'
     },
-    title=None,
-    trendline='ols'
+    title=None
 )
-
+fig6.update_traces(
+    marker=dict(size=8, opacity=0.75, line=dict(width=0.4, color='DarkSlateGrey')),
+    hovertemplate=(
+        'Persentase Ulasan Positif=%{x:.0%}<br>'
+        'Harga Game (£)=%{y}<br>'
+        'Nama=%{customdata[0]}<br>'
+        'Developer=%{customdata[1]}<br>'
+        'Publisher=%{customdata[2]}<br>'
+        'Genre=%{customdata[3]}<extra></extra>'
+    )
+)
 fig6.update_layout(
     template='plotly_white',
-    title=None,
-    title_x=0.5,
     xaxis_title='Rasio Review Positif',
-    yaxis_title='Harga Game (GBP)',
-    hovermode='x unified'
+    yaxis_title='Harga Game (£)',
 )
-
-st.plotly_chart(
-    fig6,
-    use_container_width=True
-)
+st.plotly_chart(fig6, use_container_width=True)
 
 #Corelation Owner (Players) vs Median Playtime with Filter Genre
 st.subheader("Korelasi Antara Owner dan Median Playtime Game")
+df_owner = df_current.copy()
 def convert_owner_range(x):
     x = str(x).replace(',', '').replace('+', '')
     if '-' in x:
@@ -332,34 +400,51 @@ def convert_owner_range(x):
         return (float(a) + float(b)) / 2
     return float(x)
 
-df_current['owners'] = df_current['owners'].apply(convert_owner_range)
-owner_mean = df_current['owners'].mean()
-df_current['owners'] = df_current['owners'].fillna(owner_mean)
-df_current = df_current.dropna(subset=['owners','median_playtime','genres'])
+df_owner['owners'] = df_owner['owners'].apply(convert_owner_range)
+df_owner['owners'] = df_owner['owners'].fillna(df_owner['owners'].mean())
+
+df_owner['genres'] = (
+    df_owner['genres']
+    .fillna('Unknown')
+    .apply(lambda x: x.split(';') if isinstance(x, str) else x)
+)
+
+df_owner['genres'] = df_owner['genres'].apply(
+    lambda x: [g.strip() for g in x] if isinstance(x, list) else ['Unknown']
+)
+
+df_owner = df_owner.explode('genres')
+df_owner = df_owner[df_owner['genres'].str.lower() != 'indie']
+df_owner['genres'] = df_owner['genres'].replace('', 'Unknown')
+
+col1, col2, col3, col4 = st.columns(4)
+with col4:
+    df_owner['genres'] = df_owner['genres'].astype(str)
+    genre_options_owner = ['Semua'] + sorted(df_owner['genres'].unique().tolist())
+    selected_genre_owner = st.selectbox('Pilih Genre:', genre_options_owner, index=0)
+
+if selected_genre_owner != 'Semua':
+    df_owner = df_owner[df_owner['genres'] == selected_genre_owner]
+
+df_owner = df_owner.dropna(subset=['owners', 'median_playtime'])
 
 fig7 = px.scatter(
-    df_current,
+    df_owner,
     x='owners',
     y='median_playtime',
     hover_data=['name', 'publisher', 'genres'],
     labels={
         'owners': 'Jumlah Owner',
-        'median_playtime': 'Median Playtime'
+        'median_playtime': 'Median Playtime (menit)'
     },
-    title=None,
-    trendline='ols'
+    color_discrete_sequence=colors.qualitative.Plotly
 )
 
 fig7.update_layout(
     template='plotly_white',
-    title=None,
-    title_x=0.5,
     xaxis_title='Jumlah Owner',
-    yaxis_title='Median Playtime',
+    yaxis_title='Median Playtime (menit)',
     hovermode='x unified'
 )
 
-st.plotly_chart(
-    fig7,
-    use_container_width=True
-)
+st.plotly_chart(fig7, use_container_width=True)
