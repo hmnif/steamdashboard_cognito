@@ -21,7 +21,7 @@ kpi_style = """
 }
 .kpi-box {
     background: #F0F2F6;
-    padding: 20px;
+    padding: 12px;
     border-radius: 12px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -38,31 +38,22 @@ kpi_style = """
     color: #0068C9;
 }
 .kpi-label {
-    font-size: 14px;
-    color: #3B3B3B;
+    font-size: 16px;
+    color: #262730;
 }
 .kpi-delta {
     text: None;
 }
 .kpi-delta-pos {
-    font-size: 14px;
-    color: #FFFFFF;
-    margin-top: 8px;
-    background-color: #02FF20;
-    border-radius: 99px;
-    padding: 2px 8px;
     display: inline-block;
-    text-align: center;
+    font-size: 14px;
+    color: #37C900;
+    # background-color: #02FF20;
 }
 .kpi-delta-neg {
     font-size: 14px;
-    color: #FFFFFF;
-    margin-top: 8px;
-    background-color: #FF4B4B;
-    border-radius: 99px;
-    display: inline-block;
-    padding: 2px 8px;
-    text-align: center;
+    color: #C90000;
+    # background-color: #FF4B4B;
 }
 </style>
 """
@@ -91,10 +82,10 @@ df_exploded = df_exploded[df_exploded['genres'].notna() & (df_exploded['genres']
 # Sidebar filters
 st.sidebar.header('Filter Data')
 period_options = [
-    'Semua (1997 - 2019)',
-    '5 Tahun Terakhir (2014 - 2019)',
-    '10 Tahun Terakhir (2009 - 2019)',
-    '< Tahun 2009'
+    'Semua',
+    '5 Tahun Terakhir',
+    '2010s (2010 - 2019)',
+    '2000s (2000 - 2009)'
 ]
 
 time_period = st.sidebar.selectbox(
@@ -104,18 +95,18 @@ time_period = st.sidebar.selectbox(
 )
 
 # Filter utama berdasarkan time_period
-if time_period == 'Semua (1997 - 2019)':
+if time_period == 'Semua':
     df_current = df
     df_prev = None
-elif time_period == '5 Tahun Terakhir (2014 - 2019)':
+elif time_period == '5 Tahun Terakhir':
     df_current = df[df['release_year'] >= 2014]
-    df_prev = df[(df['release_year'] >= 2009) & (df['release_year'] <= 2013)]
-elif time_period == '10 Tahun Terakhir (2009 - 2019)':
-    df_current = df[df['release_year'] >= 2009]
-    df_prev = df[(df['release_year'] >= 1999) & (df['release_year'] <= 2008)]
-elif time_period == '< Tahun 2009':
-    df_current = df[df['release_year'] < 2009]
-    df_prev = None  
+    df_prev = df[(df['release_year'] <= 2013)]
+elif time_period == '2010s (2010 - 2019)':
+    df_current = df[(df['release_year'] >= 2010) & (df['release_year'] <= 2019)]
+    df_prev = df[(df['release_year'] >= 2000) & (df['release_year'] <= 2009)]
+elif time_period == '2000s (2000 - 2009)':
+    df_current = df[(df['release_year'] <= 2009)]
+    df_prev = df[df['release_year'] < 2000]
 
 # Title and description
 st.markdown("""
@@ -156,21 +147,26 @@ else:
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if delta_games is not None:
-        kelas_delta = "kpi-delta-pos" if delta_games >= 0 else "kpi-delta-neg"
-        arrow = "↑" if delta_games >= 0 else "↓"
-        nilai_delta = delta_games
+        st.markdown(f"""
+            <div class="kpi-box">
+                <div class="kpi-label">Total Games</div>
+                <div class="kpi-value">
+                    {total_games:,}
+                    <span class="{ 'kpi-delta-pos' if delta_games >= 0 else 'kpi-delta-neg' }">
+                        {delta_games:+,}
+                    </span>
+                </div>
+                <div style="color: #3B3B3B; margin-top: 4px; font-size: 14px">Periode Sebelumnya</div>
+            </div>
+        """, unsafe_allow_html=True)
     else:
-        kelas_delta = "kpi-delta"
-        arrow = ""
-        nilai_delta = ""
-
-    st.markdown(f"""
-        <div class="kpi-box">
-            <div class="kpi-label">Total Games</div>
-            <div class="kpi-value">{total_games:,}</div>
-            <div class="{kelas_delta}">{arrow} {nilai_delta}</div>
-        </div>
-    """, unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="kpi-box">
+                <div class="kpi-label">Total Games</div>
+                <div class="kpi-value">{total_games:,}</div>
+                <div class="kpi-delta"></div>
+            </div>
+        """, unsafe_allow_html=True)
 with col2:
     st.markdown(f"""
         <div class="kpi-box">
@@ -190,10 +186,13 @@ with col4:
         st.markdown(f"""
             <div class="kpi-box">
                 <div class="kpi-label">Harga Rata-rata</div>
-                <div class="kpi-value">£{avg_price_current:.2f}</div>
-                <div class="{ 'kpi-delta' if delta_price_abs >= 0 else 'kpi-delta-neg' }">
-                    {delta_price_abs:+.2f} GBP ({delta_price_pct:+.1f}%)
+                <div class="kpi-value">
+                    £{avg_price_current:.2f}
+                    <span class="{ 'kpi-delta-neg' if delta_price_abs >= 0 else 'kpi-delta-pos' }">
+                    {delta_price_abs:+.2f}£ ({delta_price_pct:+.1f}%)
+                    </span>
                 </div>
+                <div style="color: #3B3B3B; margin-top: 4px; font-size: 14px">Periode Sebelumnya</div>
             </div>
         """, unsafe_allow_html=True)
     else:
@@ -216,7 +215,7 @@ fig1 = px.line(
     y='count',
     markers=True,
     color_discrete_map={'count': '#0068C9'},
-    labels={'release_year': '**Tahun Rilis**', 'count': 'Jumlah Game'},
+    labels={'release_year': 'Tahun Rilis', 'count': 'Jumlah Game'},
     line_shape='spline'
 )
 fig1.update_traces(line_color='royalblue', line_width=3)
@@ -295,15 +294,22 @@ with col2:
 col1, col2 = st.columns(2)
 with col1:
     st.subheader("Top 5 Publisher Teratas")
-    avg_positive_reviews = df_current.groupby('publisher')['positive_ratings'].mean().reset_index()
-    top5_publishers = avg_positive_reviews.nlargest(5, 'positive_ratings')
+    avg_positive_reviews = (df_current.groupby('publisher')['positive_ratings'].mean().reset_index())
+    top5_publishers = (avg_positive_reviews.nlargest(5, 'positive_ratings').reset_index(drop=True))
     fig4 = px.bar(
         top5_publishers,
         x='publisher',
         y='positive_ratings',
         labels={'publisher': 'Publisher', 'positive_ratings': 'Rata-rata Review Positif'},
         color='publisher',
-        color_discrete_sequence=colors.qualitative.Plotly
+        # color_discrete_sequence=colors.qualitative.Plotly
+        color_discrete_map={
+            top5_publishers['publisher'][0]: '#0068C9',
+            top5_publishers['publisher'][1]: '#3286d3',
+            top5_publishers['publisher'][2]: '#66a4de',
+            top5_publishers['publisher'][3]: '#99c2e9',
+            top5_publishers['publisher'][4]: '#e5eff9',
+        }
     )
     fig4.update_layout(
         template='plotly_white',
@@ -344,12 +350,15 @@ df_pos = df_pos.explode('genres')
 df_pos['genres'] = df_pos['genres'].fillna("Unknown")
 df_pos = df_pos[df_pos['genres'].str.lower() != "indie"]
 df_pos = df_pos[df_pos['price'] <= 100]
-genre_options_pos = ['Semua'] + sorted(df_pos['genres'].unique().tolist())
-selected_genre_pos = st.selectbox(
-    'Pilih Genre (Positive Ratio vs Price):',
-    genre_options_pos,
-    index=0
-)
+col1, col2, col3, col4 = st.columns(4)
+with col4:
+    df_pos['genres'] = df_pos['genres'].astype(str)
+    genre_options_pos = ['Semua'] + sorted(df_pos['genres'].unique().tolist())
+    selected_genre_pos = st.selectbox(
+        'Pilih Genre:',
+        genre_options_pos,
+        index=0
+    )
 if selected_genre_pos != 'Semua':
     df_pos = df_pos[df_pos['genres'] == selected_genre_pos]
 
@@ -359,11 +368,11 @@ fig6 = px.scatter(
     y='price',
     color='price',
     color_continuous_scale=[
-        [0.00, "#0068C9"],
-        [0.10, "#64B5F6"],
+        [0.00, "#0077ff"],
+        [0.10, "#00baff"],
         [0.20, "#fee08b"],
         [0.50, "#f46d43"],
-        [1.00, "#d73027"]
+        [1.00, "#C90000"]
     ],
     hover_data=['name', 'publisher', 'genres'],
     labels={
