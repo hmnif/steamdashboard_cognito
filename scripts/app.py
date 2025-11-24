@@ -241,7 +241,7 @@ with col1:
         color='review_type',
         barmode='group',
         labels={'name': 'Nama Game', 'count': 'Jumlah Review', 'review_type': 'Tipe Review'},
-        color_discrete_map={'positive_ratings': '#37C900', 'negative_ratings': '#C90000'}
+        color_discrete_map={'positive_ratings': '#0068C9', 'negative_ratings': '#64B5F6'}
     )
     fig2.update_layout(
         template='plotly_white',
@@ -251,7 +251,7 @@ with col1:
     )
     st.plotly_chart(fig2, use_container_width=True)
 with col2:
-    st.subheader("Top 5 Genre Teratas")
+    st.subheader("Top 5 Genre Tepopuler")
     df_genre = df_current.copy()
     df_genre = df_genre.explode('genres')
 
@@ -339,65 +339,119 @@ with col2:
     )
     st.plotly_chart(fig5, use_container_width=True)
 
+st.markdown("---")
+
 # Corelation Ratio Positive Reviews vs Price Game with Filter Genre
-st.subheader("Korelasi Antara Review Positif dan Harga Game")
-df_pos = df_current.copy()
-df_pos['positive_ratio'] = df_pos['positive_ratings'] / (
-    df_pos['positive_ratings'] + df_pos['negative_ratings']
+# st.subheader("Korelasi Antara Review Positif dan Harga Game")
+# df_pos = df_current.copy()
+# df_pos['positive_ratio'] = df_pos['positive_ratings'] / (
+#     df_pos['positive_ratings'] + df_pos['negative_ratings']
+# )
+
+# df_pos = df_pos.explode('genres')
+# df_pos['genres'] = df_pos['genres'].fillna("Unknown")
+# df_pos = df_pos[df_pos['genres'].str.lower() != "indie"]
+# df_pos = df_pos[df_pos['price'] <= 100]
+# col1, col2, col3, col4 = st.columns(4)
+# with col4:
+#     df_pos['genres'] = df_pos['genres'].astype(str)
+#     genre_options_pos = ['Semua'] + sorted(df_pos['genres'].unique().tolist())
+#     selected_genre_pos = st.selectbox(
+#         'Pilih Genre:',
+#         genre_options_pos,
+#         index=0
+#     )
+# if selected_genre_pos != 'Semua':
+#     df_pos = df_pos[df_pos['genres'] == selected_genre_pos]
+
+# fig6 = px.scatter(
+#     df_pos,
+#     x='positive_ratio',
+#     y='price',
+#     color='price',
+#     color_continuous_scale=[
+#         [0.00, "#0077ff"],
+#         [0.10, "#00baff"],
+#         [0.20, "#fee08b"],
+#         [0.50, "#f46d43"],
+#         [1.00, "#C90000"]
+#     ],
+#     hover_data=['name', 'publisher', 'genres'],
+#     labels={
+#         'positive_ratio': 'Rasio Review Positif',
+#         'price': 'Harga Game (£)'
+#     },
+#     title=None
+# )
+# fig6.update_traces(
+#     marker=dict(size=8, opacity=0.75, line=dict(width=0.4, color='DarkSlateGrey')),
+#     hovertemplate=(
+#         'Persentase Ulasan Positif=%{x:.0%}<br>'
+#         'Harga Game (£)=%{y}<br>'
+#         'Nama=%{customdata[0]}<br>'
+#         'Developer=%{customdata[1]}<br>'
+#         'Publisher=%{customdata[2]}<br>'
+#         'Genre=%{customdata[3]}<extra></extra>'
+#     )
+# )
+# fig6.update_layout(
+#     template='plotly_white',
+#     xaxis_title='Rasio Review Positif',
+#     yaxis_title='Harga Game (£)',
+# )
+# st.plotly_chart(fig6, use_container_width=True)
+
+# st.markdown("---")
+
+# Density Game by Ratio Positive Reviews and Price Game with Filter Price Category
+st.subheader("Distribusi Game Berdasarkan Rasio Review Positif dan Harga Game")
+df_density = df_current.copy()
+df_density['positive_ratio'] = df_density['positive_ratings'] / (
+    df_density['positive_ratings'] + df_density['negative_ratings']
 )
 
-df_pos = df_pos.explode('genres')
-df_pos['genres'] = df_pos['genres'].fillna("Unknown")
-df_pos = df_pos[df_pos['genres'].str.lower() != "indie"]
-df_pos = df_pos[df_pos['price'] <= 100]
 col1, col2, col3, col4 = st.columns(4)
 with col4:
-    df_pos['genres'] = df_pos['genres'].astype(str)
-    genre_options_pos = ['Semua'] + sorted(df_pos['genres'].unique().tolist())
-    selected_genre_pos = st.selectbox(
-        'Pilih Genre:',
-        genre_options_pos,
+    price_category_options = ['Semua', 'Gratis', 'Murah (0-£10)', 'Sedang (£10-£30)', 'Mahal (£30-£100)', 'Premium (£100+)']
+    selected_price_category = st.selectbox(
+        'Pilih Kategori Harga:',
+        price_category_options,
         index=0
     )
-if selected_genre_pos != 'Semua':
-    df_pos = df_pos[df_pos['genres'] == selected_genre_pos]
+if selected_price_category == 'Gratis':
+    df_density = df_density[df_density['price'] == 0]
+elif selected_price_category == 'Murah (0-£10)':
+    df_density = df_density[(df_density['price'] > 0) & (df_density['price'] <= 10)]
+elif selected_price_category == 'Sedang (£10-£30)':
+    df_density = df_density[(df_density['price'] > 10) & (df_density['price'] <= 30)]
+elif selected_price_category == 'Mahal (£30-£100)':
+    df_density = df_density[(df_density['price'] > 30) & (df_density['price'] <= 100)]
+elif selected_price_category == 'Premium (£100+)':
+    df_density = df_density[df_density['price'] > 100]
 
-fig6 = px.scatter(
-    df_pos,
+fig7 = px.density_heatmap(
+    df_density,
     x='positive_ratio',
     y='price',
-    color='price',
-    color_continuous_scale=[
-        [0.00, "#0077ff"],
-        [0.10, "#00baff"],
-        [0.20, "#fee08b"],
-        [0.50, "#f46d43"],
-        [1.00, "#C90000"]
-    ],
-    hover_data=['name', 'publisher', 'genres'],
+    nbinsx=40,
+    nbinsy=40,
+    color_continuous_scale='Blues',
     labels={
-        'positive_ratio': 'Rasio Review Positif',
-        'price': 'Harga Game (£)'
+        'positive_ratio': 'Persentase Ulasan Positif',
+        'price': 'Harga (£)'
     },
-    title=None
+    width=1100,
+    height=650
 )
-fig6.update_traces(
-    marker=dict(size=8, opacity=0.75, line=dict(width=0.4, color='DarkSlateGrey')),
-    hovertemplate=(
-        'Persentase Ulasan Positif=%{x:.0%}<br>'
-        'Harga Game (£)=%{y}<br>'
-        'Nama=%{customdata[0]}<br>'
-        'Developer=%{customdata[1]}<br>'
-        'Publisher=%{customdata[2]}<br>'
-        'Genre=%{customdata[3]}<extra></extra>'
-    )
-)
-fig6.update_layout(
+fig7.update_layout(
     template='plotly_white',
-    xaxis_title='Rasio Review Positif',
-    yaxis_title='Harga Game (£)',
+    xaxis_title='Persentase Ulasan Positif',
+    yaxis_title='Harga (£)',
+    
 )
-st.plotly_chart(fig6, use_container_width=True)
+st.plotly_chart(fig7, use_container_width=True)
+
+st.markdown("---")
 
 #Corelation Owner (Players) vs Median Playtime with Filter Genre
 st.subheader("Korelasi Antara Owner dan Median Playtime Game")
