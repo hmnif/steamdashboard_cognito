@@ -7,6 +7,7 @@ import os
 import numpy as np
 
 from plotly.subplots import make_subplots
+# from ai.insight_engine import insight_distributiongame
 
 # Set page configuration
 st.set_page_config(page_title="Steam Dashboard", layout="wide")
@@ -339,6 +340,27 @@ with col2:
     )
     st.plotly_chart(fig5, use_container_width=True)
 
+    # Insight Dropdown for Price Distribution
+    # with st.expander("💡 Insight"):
+    #     total_gratis = price_distribution.loc[
+    #         price_distribution['price_category'] == 'Gratis', 'count'
+    #     ].sum()
+
+    #     total_berbayar = price_distribution.loc[
+    #         price_distribution['price_category'] == 'Berbayar', 'count'
+    #     ].sum()
+
+    #     st.markdown(f"""
+    #         <div style="font-size:16px; line-height:2;">
+    #             <div>Game Gratis: <b>{total_gratis:,}</b></div>
+    #             <div>Game Berbayar: <b>{total_berbayar:,}</b></div>
+    #         </div>
+    #         <div>
+    #             Recommendation by <b>AI ✨</b>:
+    #             <div>{insight_distributiongame(total_gratis, total_berbayar)}</div>
+    #         </div>
+    #     """, unsafe_allow_html=True)
+
 st.markdown("---")
 
 # Corelation Ratio Positive Reviews vs Price Game with Filter Genre
@@ -454,6 +476,67 @@ st.plotly_chart(fig7, use_container_width=True)
 st.markdown("---")
 
 #Corelation Owner (Players) vs Median Playtime with Filter Genre
+# st.subheader("Korelasi Antara Owner dan Median Playtime Game")
+# df_owner = df_current.copy()
+# def convert_owner_range(x):
+#     x = str(x).replace(',', '').replace('+', '')
+#     if '-' in x:
+#         a, b = x.split('-')
+#         return (float(a) + float(b)) / 2
+#     return float(x)
+
+# df_owner['owners'] = df_owner['owners'].apply(convert_owner_range)
+# df_owner['owners'] = df_owner['owners'].fillna(df_owner['owners'].mean())
+
+# df_owner['genres'] = (
+#     df_owner['genres']
+#     .fillna('Unknown')
+#     .apply(lambda x: x.split(';') if isinstance(x, str) else x)
+# )
+
+# df_owner['genres'] = df_owner['genres'].apply(
+#     lambda x: [g.strip() for g in x] if isinstance(x, list) else ['Unknown']
+# )
+
+# df_owner = df_owner.explode('genres')
+# df_owner = df_owner[df_owner['genres'].str.lower() != 'indie']
+# df_owner['genres'] = df_owner['genres'].replace('', 'Unknown')
+
+# col1, col2, col3, col4 = st.columns(4)
+# with col4:
+#     df_owner['genres'] = df_owner['genres'].astype(str)
+#     genre_options_owner = ['Semua'] + sorted(df_owner['genres'].unique().tolist())
+#     selected_genre_owner = st.selectbox('Pilih Genre:', genre_options_owner, index=0)
+
+# if selected_genre_owner != 'Semua':
+#     df_owner = df_owner[df_owner['genres'] == selected_genre_owner]
+
+# df_owner = df_owner.dropna(subset=['owners', 'median_playtime'])
+
+# fig7 = px.scatter(
+#     df_owner,
+#     x='owners',
+#     y='median_playtime',
+#     hover_data=['name', 'publisher', 'genres'],
+#     labels={
+#         'owners': 'Jumlah Owner',
+#         'median_playtime': 'Median Playtime (menit)'
+#     },
+#     color_discrete_sequence=colors.qualitative.Plotly
+# )
+
+# fig7.update_layout(
+#     template='plotly_white',
+#     xaxis_title='Jumlah Owner',
+#     yaxis_title='Median Playtime (menit)',
+#     hovermode='x unified'
+# )
+
+# st.plotly_chart(fig7, use_container_width=True)
+
+# st.markdown("---")
+
+#Corelation Owner (Players) vs Median Playtime with Filter Genre use Hexbin Plot
 st.subheader("Korelasi Antara Owner dan Median Playtime Game")
 df_owner = df_current.copy()
 def convert_owner_range(x):
@@ -488,26 +571,51 @@ with col4:
 
 if selected_genre_owner != 'Semua':
     df_owner = df_owner[df_owner['genres'] == selected_genre_owner]
-
 df_owner = df_owner.dropna(subset=['owners', 'median_playtime'])
 
-fig7 = px.scatter(
-    df_owner,
-    x='owners',
-    y='median_playtime',
-    hover_data=['name', 'publisher', 'genres'],
-    labels={
-        'owners': 'Jumlah Owner',
-        'median_playtime': 'Median Playtime (menit)'
-    },
-    color_discrete_sequence=colors.qualitative.Plotly
-)
+genres = sorted(df_owner['genres'].unique())
+genre_map = {g: i * 360 / len(genres) for i, g in enumerate(genres)}
+df_owner['theta'] = df_owner['genres'].map(genre_map)
+
+df_owner['owners_scaled'] = df_owner['owners']
+
+df_owner['marker_size'] = (df_owner['median_playtime'] / 60).clip(5, 20)
+
+fig7 = go.Figure()
+
+fig7.add_trace(go.Scatterpolar(
+    r=df_owner['owners_scaled'],
+    theta=df_owner['theta'],
+    mode='markers',
+    marker=dict(
+        size=df_owner['marker_size'],
+        color=df_owner['owners_scaled'],
+        colorscale='Blues',
+        showscale=True,
+        colorbar=dict(title='Jumlah Owner')
+    ),
+    hovertemplate=(
+        "<b>%{text}</b><br>"
+        "Genre: %{customdata[1]}<br>"
+        "Jumlah Owner: %{r}<br>"
+        "Median Playtime: %{marker.size} menit<br>"
+        "Publisher: %{customdata[0]}<extra></extra>"
+    ),
+    text=df_owner['name'],
+    customdata=df_owner[['publisher', 'genres']]
+))
 
 fig7.update_layout(
     template='plotly_white',
-    xaxis_title='Jumlah Owner',
-    yaxis_title='Median Playtime (menit)',
-    hovermode='x unified'
+    polar=dict(
+        radialaxis=dict(title='Jumlah Owner (log scale)', type='log'),
+        angularaxis=dict(
+            tickmode='array',
+            tickvals=list(genre_map.values()),
+            ticktext=list(genre_map.keys())
+        )
+    ),
+    showlegend=False
 )
 
 st.plotly_chart(fig7, use_container_width=True)
