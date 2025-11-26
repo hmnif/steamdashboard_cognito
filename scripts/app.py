@@ -129,7 +129,7 @@ df_exploded_publisher = df_exploded_publisher[
 # Title and description
 st.markdown("""
     <h1 class="title">
-        Dahsboard Tren Game Steam🎮
+        Dashboard Tren Game Steam 🎮
     </h1>
 """, unsafe_allow_html=True)
 
@@ -687,7 +687,7 @@ st.markdown("---")
 # st.plotly_chart(fig7, use_container_width=True)
 
 #Corelation Owner (Players) vs Average Playtime with Filter Genre use Scatter Polar Plot
-st.subheader("Korelasi Antara Owner dan Rata-rata Playtime Game")
+st.subheader("Sebaran Jumlah Pemain (Owners) terhadap Rata-rata Durasi Bermain")
 df_owner = df_current.copy()
 def convert_owner_range(x):
     x = str(x).replace(',', '').replace('+', '')
@@ -739,9 +739,9 @@ fig8.add_trace(go.Scatterpolar(
     marker=dict(
         size=df_owner['marker_size'],
         color=df_owner['owners_scaled'],
-        colorscale='Blues',
+        colorscale='RdBu',
         showscale=True,
-        colorbar=dict(title='Jumlah Owner')
+        colorbar=dict(title='Jumlah Pemain')
     ),
     hovertemplate=(
         "<b>%{text}</b><br>"
@@ -754,9 +754,9 @@ fig8.add_trace(go.Scatterpolar(
     customdata=df_owner[['publisher', 'genres']]
 ))
 fig8.update_layout(
-    template='plotly_dark',
+    template='seaborn',
     polar=dict(
-        radialaxis=dict(title='Jumlah Owner (log scale)', type='log'),
+        radialaxis=dict(type='log'),
         angularaxis=dict(
             tickmode='array',
             tickvals=list(genre_map.values()),
