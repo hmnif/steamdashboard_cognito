@@ -104,10 +104,12 @@ elif time_period == '2000s (2000 - 2009)':
     df_prev = df[df['release_year'] < 2000]
 
 # ----- PREPROCESS GENRES -----
-df['genres'] = df['genres'].fillna('Unknown').str.split(';')
-df['genres'] = df['genres'].apply(lambda x: [g.strip() for g in x if g.strip().lower() != 'indie'])
+df_current['genres'] = df_current['genres'].fillna('Unknown').str.split(';')
+df_current['genres'] = df_current['genres'].apply(
+    lambda x: [g.strip() for g in x if g.strip() and g.strip().lower() != 'indie']
+)
 
-df_exploded_genre = df.explode('genres')
+df_exploded_genre = df_current.explode('genres')
 df_exploded_genre = df_exploded_genre[
     df_exploded_genre['genres'].notna() & (df_exploded_genre['genres'] != "")
 ]
@@ -285,15 +287,9 @@ with col1:
     st.plotly_chart(fig2, use_container_width=True)
 with col2:
     st.subheader("Top 5 Genre Tepopuler")
-    df_genre = df_current.copy()
-    df_genre = df_genre.explode('genres')
+    df_genre = df_exploded_genre.copy()
 
-    df_genre = df_genre[
-        df_genre['genres'].notna() &
-        (df_genre['genres'] != "") &
-        (df_genre['genres'].str.lower() != "indie")
-    ]
-
+    # Hitung Top 5 Genre
     top5_genres = (
         df_genre['genres']
         .value_counts()
