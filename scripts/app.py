@@ -73,26 +73,20 @@ except FileNotFoundError:
 # Preprocess data
 df['release_date'] = pd.to_datetime(df['release_date'], errors='coerce')
 df['release_year'] = df['release_date'].dt.year
-df['genres'] = df['genres'].fillna('Unknown').str.split(';')
-df['genres'] = df['genres'].apply(
-    lambda x: [g.strip() for g in x if g.strip().lower() != 'indie']
-)
-df_exploded = df.explode('genres')
-df_exploded = df_exploded[df_exploded['genres'].notna() & (df_exploded['genres'] != "")]
 
-# Sidebar filters
-st.sidebar.header('Filter Data')
-period_options = [
-    'Semua',
-    '5 Tahun Terakhir',
-    '2010s (2010 - 2019)',
-    '2000s (2000 - 2009)'
-]
+# Sidebar filters 
+st.sidebar.header('Filter Data') 
+period_options = [ 
+    'Semua', 
+    '5 Tahun Terakhir', 
+    '2010s (2010 - 2019)', 
+    '2000s (2000 - 2009)' 
+] 
 
-time_period = st.sidebar.selectbox(
-    'Periode Waktu:',
-    period_options,
-    index=0   # default
+time_period = st.sidebar.selectbox( 
+    'Periode Waktu:', 
+    period_options, 
+    index=0 # default 
 )
 
 # Filter utama berdasarkan time_period
@@ -101,13 +95,34 @@ if time_period == 'Semua':
     df_prev = None
 elif time_period == '5 Tahun Terakhir':
     df_current = df[df['release_year'] >= 2014]
-    df_prev = df[(df['release_year'] <= 2013)]
+    df_prev = df[(df['release_year'] >= 2009) & (df['release_year'] <= 2013)]
 elif time_period == '2010s (2010 - 2019)':
     df_current = df[(df['release_year'] >= 2010) & (df['release_year'] <= 2019)]
     df_prev = df[(df['release_year'] >= 2000) & (df['release_year'] <= 2009)]
 elif time_period == '2000s (2000 - 2009)':
     df_current = df[(df['release_year'] <= 2009)]
     df_prev = df[df['release_year'] < 2000]
+
+# ----- PREPROCESS GENRES -----
+df['genres'] = df['genres'].fillna('Unknown').str.split(';')
+df['genres'] = df['genres'].apply(lambda x: [g.strip() for g in x if g.strip().lower() != 'indie'])
+
+df_exploded_genre = df.explode('genres')
+df_exploded_genre = df_exploded_genre[
+    df_exploded_genre['genres'].notna() & (df_exploded_genre['genres'] != "")
+]
+
+# ----- PREPROCESS PUBLISHER -----
+df_exploded_publisher = df_current.copy()
+df_exploded_publisher['publisher'] = df_exploded_publisher['publisher'].fillna('Unknown').str.split(';')
+df_exploded_publisher['publisher'] = df_exploded_publisher['publisher'].apply(
+    lambda x: [p.strip() for p in x]
+)
+
+df_exploded_publisher = df_exploded_publisher.explode('publisher')
+df_exploded_publisher = df_exploded_publisher[
+    df_exploded_publisher['publisher'].notna() & (df_exploded_publisher['publisher'] != "")
+]
 
 # Title and description
 st.markdown("""
@@ -124,11 +139,22 @@ st.markdown("---")
 
 #KPI Cards
 total_games = df_current.shape[0]
-total_publishers = df_current['publisher'].nunique()
-if df_exploded.empty:
+
+if df_exploded_genre.empty:
     most_common_genre = "Unknown"
 else:
-    most_common_genre = df_exploded['genres'].mode()[0]
+    most_common_genre = df_exploded_genre['genres'].mode()[0]
+
+if df_exploded_publisher.empty:
+    most_common_publisher = "Unknown"
+else:
+    publisher_mean_rating = (
+        df_exploded_publisher.groupby('publisher')['positive_ratings']
+        .mean()
+        .reset_index()
+        .sort_values(by='positive_ratings', ascending=False)
+    )
+    most_common_publisher = publisher_mean_rating.iloc[0]['publisher']
 
 avg_price_current = df_current['price'].mean()
 
@@ -169,10 +195,16 @@ with col1:
             </div>
         """, unsafe_allow_html=True)
 with col2:
+    # st.markdown(f"""
+    #     <div class="kpi-box">
+    #         <div class="kpi-label">Total Publisher</div>
+    #         <div class="kpi-value">{total_publishers:,}</div>
+    #     </div>
+    # """, unsafe_allow_html=True)
     st.markdown(f"""
         <div class="kpi-box">
-            <div class="kpi-label">Total Publisher</div>
-            <div class="kpi-value">{total_publishers:,}</div>
+            <div class="kpi-label">Publisher Terfavorit</div>
+            <div class="kpi-value">{most_common_publisher}</div>
         </div>
     """, unsafe_allow_html=True)
 with col3:
@@ -257,7 +289,7 @@ with col2:
     df_genre = df_genre.explode('genres')
 
     df_genre = df_genre[
-        df_genre['genres'].notna() & 
+        df_genre['genres'].notna() &
         (df_genre['genres'] != "") &
         (df_genre['genres'].str.lower() != "indie")
     ]
@@ -269,6 +301,7 @@ with col2:
         .reset_index()
     )
     top5_genres.columns = ['genre', 'count']
+
     fig3 = px.bar(
         top5_genres,
         x='genre',
@@ -283,27 +316,64 @@ with col2:
             top5_genres['genre'][4]: '#e5eff9',
         }
     )
+
     fig3.update_layout(
         template='plotly_white',
         xaxis_title='Genre',
         yaxis_title='Jumlah Game',
         hovermode='x unified'
     )
+
     st.plotly_chart(fig3, use_container_width=True)
 
 # Top 5 Publishers by Average Positive Reviews and Price Distribution (Free vs Paid)
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("Top 5 Publisher Teratas")
-    avg_positive_reviews = (df_current.groupby('publisher')['positive_ratings'].mean().reset_index())
-    top5_publishers = (avg_positive_reviews.nlargest(5, 'positive_ratings').reset_index(drop=True))
+    st.subheader("Top 5 Publisher Terfavorit")
+    def clean_publisher(x):
+        if isinstance(x, float) or x is None:
+            return ['Unknown']
+        if isinstance(x, str):
+            return [p.strip() for p in x.split(';') if p.strip() != ""]
+        if isinstance(x, list):
+            return [p.strip() for p in x if isinstance(p, str) and p.strip() != ""]
+        return ['Unknown']
+
+    # --- Copy df_current agar aman ---
+    df_pub = df_current.copy()
+
+    # --- Bersihkan dan explode publisher ---
+    df_pub['publisher'] = df_pub['publisher'].apply(clean_publisher)
+    df_pub = df_pub.explode('publisher')
+
+    # --- Drop kosong (jaga-jaga) ---
+    df_pub = df_pub[df_pub['publisher'].notna() & (df_pub['publisher'] != "")]
+
+    # --- Cek jika dataframe kosong ---
+    if df_pub.empty:
+        st.write("Tidak ada data publisher tersedia.")
+    else:
+        # --- Hitung rata-rata review positif per publisher ---
+        avg_positive_reviews = (
+            df_pub.groupby('publisher')['positive_ratings']
+            .mean()
+            .reset_index()
+        )
+
+    # --- Ambil Top 5 ---
+    top5_publishers = (
+        avg_positive_reviews
+        .nlargest(5, 'positive_ratings')
+        .reset_index(drop=True)
+    )
+
+    # --- Plot bar chart ---
     fig4 = px.bar(
         top5_publishers,
         x='publisher',
         y='positive_ratings',
         labels={'publisher': 'Publisher', 'positive_ratings': 'Rata-rata Review Positif'},
         color='publisher',
-        # color_discrete_sequence=colors.qualitative.Plotly
         color_discrete_map={
             top5_publishers['publisher'][0]: '#0068C9',
             top5_publishers['publisher'][1]: '#3286d3',
